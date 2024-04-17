@@ -1,3 +1,3 @@
 #!/bin/bash
 
-echo "run 123.sh"
+echo "Выполнен скрипт 145.sh"

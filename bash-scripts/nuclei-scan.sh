@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo "run nuclei-scan.sh"
+echo "Выполнен скрипт nuclei-scan.sh"
 sleep 5

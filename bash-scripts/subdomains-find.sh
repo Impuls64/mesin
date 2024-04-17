@@ -1,3 +1,3 @@
 #!/bin/bash
 
-echo "run subdomains-find.sh"
+echo "Выполнен скрипт subdomains-find.sh"

@@ -1,91 +1,81 @@
 #!/bin/bash
 
-for arg in "$@"
-do
-    if [[ $arg == "-h" || $arg == "--help" ]]; then
-        echo "Usage: mesin [fast] [smart] [install] [-h | --help]"
-        exit 0
+log_dir="temp"
+console_log="$log_dir/console.log"
+mkdir -p "$log_dir"
+
+timestamp() {
+    date +"%Y-%m-%d %H:%M:%S"
+}
+
+update_progress() {
+    local flag=$1
+    local script=$2
+    local status=$3
+
+    if [ ! -f "$console_log" ]; then
+        touch "$console_log"
     fi
 
-    if [[ $arg == "install" ]]; then
-        ./install-program.sh
-        exit 0
+    if grep -q "^$flag:$script" "$console_log" 2>/dev/null; then
+        sed -i "s|^$flag:$script:.*|$flag:$script:$status|" "$console_log"
+    else
+        echo "$flag:$script:$status" >> "$console_log"
     fi
-done
+}
 
-if [[ ! -d "temp" ]]; then
-    mkdir temp
-fi
-
-case_list=("mesin" "mesin-fast" "mesin-smart")
-script_log=""
 
 execute_script() {
-  script_name=$1
-  script_type=${script_name##*.}
-  script_dir=""
+    local flag=$1
+    local script_name=$2
+    local script_dir
+    local script_type=${script_name##*.}
 
-  if [[ $script_type == "sh" ]]; then
-    script_dir="bash-scripts"
-  elif [[ $script_type == "py" ]]; then
-    script_dir="python-scripts"
-  else
-    echo "Unsupported script type: $script_type"
-    return 1
-  fi
+    case $script_type in
+        sh) script_dir="bash-scripts" ;;
+        py) script_dir="python-scripts" ;;
+        *) echo "Unsupported script type: $script_type"; return 1 ;;
+    esac
 
-  if [[ ! -f "$script_dir/$script_name" ]]; then
-    echo "$script_dir/$script_name does not exist"
-  else
-    if [[ $script_type == "sh" ]]; then
-      ./"$script_dir/$script_name"
-    elif [[ $script_type == "py" ]]; then
-      python3 "$script_dir/$script_name"
+    if [[ -f "$script_dir/$script_name" ]]; then
+        if [[ $script_type == "sh" ]]; then
+            (bash "$script_dir/$script_name") && update_progress "$flag" "$script_name" "done"
+        elif [[ $script_type == "py" ]]; then
+            (python3 "$script_dir/$script_name") && update_progress "$flag" "$script_name" "done"
+        fi
+    else
+        echo "Script $script_dir/$script_name does not exist"
+        update_progress "$flag" "$script_name" "not found"
     fi
-    sed -i "s/$script_name: Not Done/$script_name: Done/g" temp/progress.log
-  fi
 }
 
-update_progress_log() {
-  local case_dir=$1
-  # Remove existing entries for this case
-  sed -i "/^### $case_dir ###/,/^###/d" temp/progress.log
-  # Add new entries for current scripts
-  if [[ -f "case-list/$case_dir" ]]; then
-    echo "### $case_dir ###" >> temp/progress.log
-    while IFS= read -r script; do
-      echo "$script: Not Done" >> temp/progress.log
-    done < "case-list/$case_dir"
-  fi
+prepare_script_list() {
+    local flag=$1
+    local flag_file="case-list/$flag"
+    local status
+
+    while IFS= read -r script_name; do
+        if ! grep -q "^$flag:$script_name" "$console_log"; then
+            status="not done"
+            echo "$flag:$script_name:$status" >> "$console_log"
+        fi
+    done < "$flag_file"
 }
 
-# Initialize or update progress log with all scripts
-if [[ -f "temp/progress.log" ]]; then
-    for case_dir in "${case_list[@]}"; do
-      if [[ -f "case-list/$case_dir" ]]; then
-        update_progress_log "$case_dir"
-      fi
-    done
-else
-    touch temp/progress.log
-    for case_dir in "${case_list[@]}"; do
-      if [[ -f "case-list/$case_dir" ]]; then
-        echo "### $case_dir ###" >> temp/progress.log
-        while IFS= read -r script; do
-          echo "$script: Not Done" >> temp/progress.log
-        done < "case-list/$case_dir"
-      fi
-    done
+flag="${1:-mesin}"
+
+if [ ! -f "$console_log" ]; then
+    touch "$console_log"
 fi
 
-for case_dir in "${case_list[@]}"; do
-  if [[ -f "case-list/$case_dir" ]]; then
-    echo "### $case_dir ###"
-    while IFS= read -r script; do
-      flag=$(grep -c -w "$script: Done" "temp/progress.log")
-      if [[ $flag -eq 0 ]]; then
-        execute_script "$script"
-      fi
-    done < "case-list/$case_dir"
-  fi
-done
+prepare_script_list "$flag"
+
+if [ -f "$console_log" ]; then
+    while IFS=: read -r flag script status; do
+        if [[ $status != "done" && $script != "" ]]; then
+            execute_script "$flag" "$script"
+        fi
+    done < <(grep "^$flag:" "$console_log")
+fi
+
+sed -i "1s/.*/$(timestamp): Updated flag '$flag'/" "$console_log"

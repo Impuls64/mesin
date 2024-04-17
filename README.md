@@ -6,7 +6,7 @@
 
 All settings are made in wsl kali-linux. The default working folder for all scripts is ~/Downloads
 
-git clone git@github.com:Impuls64/mesin.git
+git clone https://github.com/Impuls64/mesin.git
 
 ### Adding a Quick launch:
 

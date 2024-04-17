@@ -1,3 +1,3 @@
 #!/bin/bash
 
-echo "run nmap-scan.sh"
+echo "Выполнен скрипт nmap-scan.sh"
