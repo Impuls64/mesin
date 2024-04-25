@@ -14,6 +14,7 @@ sudo ln -s ~/Downloads/mesin/mesin.sh /usr/local/bin/mesin
 
 ###
 
+sudo ln -sf ~/Downloads/mesin/mesin.py /usr/local/bin/mesin
 
 
 ###
