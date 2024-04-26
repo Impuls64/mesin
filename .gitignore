@@ -2,3 +2,6 @@
 temp/
 .env
 mesin/
+*.txt
+*.yaml
+*.yml

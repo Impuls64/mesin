@@ -1,57 +1,49 @@
 import os
 import yaml
-from collections import Counter
 
-def count_tags(directory):
-    tags_counter = Counter()
-    unmatched_files = []
-    other_counter = 0
-    
-    # First pass to collect all tags
+directory_path_1 = os.path.expanduser('~/Downloads/cent-nuclei-templates')
+directory_path_2 = os.path.expanduser('~/nuclei-templates')
+
+def parse_yaml(template):
+    data = []
+    for line in template.strip().split('\n'):
+        if line.startswith(('id:', 'info:', 'name:', 'tags:')):
+            key, value = line.split(':', 1)
+            if value.strip():
+                data.append(f"{key.strip()}: {value.strip()}")
+    return data
+
+def process_directory(directory):
+    file_data = []
     for root, dirs, files in os.walk(directory):
         for file in files:
-            if file.endswith('.yaml') or file.endswith('.yml'):
+            if file.endswith(('.yaml', '.yml')):
                 file_path = os.path.join(root, file)
                 try:
                     with open(file_path, 'r') as stream:
-                        template = yaml.safe_load(stream)
-                        if 'tags' in template:
-                            for tag in template['tags']:
-                                if isinstance(tag, str):
-                                    tags_counter.update([tag])
-                                elif isinstance(tag, dict):
-                                    for key, value in tag.items():
-                                        tags_counter.update([value])
-                        elif 'info' in template and 'name' in template['info']:
-                            tags_counter.update([template['info']['name']])
-                        else:
-                            unmatched_files.append(file_path)
+                        template = stream.read()
+                        parsed_data = parse_yaml(template)
+                        file_data.append(', '.join(parsed_data) + f", path:{file_path}, size:{os.path.getsize(file_path)}")
                 except yaml.YAMLError as exc:
                     print(f'Error reading {file}: {exc}')
+    return file_data
 
-    # Second pass to handle unmatched files
-    for file_path in unmatched_files:
-        try:
-            with open(file_path, 'r') as stream:
-                template = yaml.safe_load(stream)
-                if 'name' in template:
-                    name = template['name']
-                    # Check if any part of the name matches the collected tags
-                    if any(tag in name for tag in tags_counter):
-                        tags_counter.update([name])
-                    else:
-                        other_counter += 1
-                else:
-                    other_counter += 1
-        except yaml.YAMLError as exc:
-            print(f'Error reading {file}: {exc}')
+file_data_1 = process_directory(directory_path_1)
+file_data_2 = process_directory(directory_path_2)
 
-    return tags_counter, other_counter
+unique_file_data = []
+for data in file_data_1 + file_data_2:
+    data_parts = data.split(', ')
+    data_parts.remove(data_parts[-1])
+    data_parts.remove(data_parts[-1])
+    data_key = ', '.join(data_parts)
+    if data_key not in [d.split(', ')[:-2] for d in unique_file_data]:
+        unique_file_data.append(data)
 
-directory_path = os.path.expanduser('~/Downloads/cent-nuclei-templates')
-tags_counter, other_count = count_tags(directory_path)
-print(f'Total tags: {sum(tags_counter.values())}')
-print(f'Unique tags: {len(tags_counter)}')
-print(f'Files without matching tags or names: {other_count}')
-for tag, count in tags_counter.most_common():
-    print(f'{tag}: {count}')
+with open('nuclei-list.txt', 'w') as outfile:
+    outfile.write('\n'.join(unique_file_data) + '\n')
+
+print(f"Total files in {directory_path_1}: {len(file_data_1)}")
+print(f"Total files in {directory_path_2}: {len(file_data_2)}")
+print(f"Total unique entries in nuclei-list.txt: {len(unique_file_data)}")
+print(f"Duplicates removed: {len(file_data_1 + file_data_2) - len(unique_file_data)}")
