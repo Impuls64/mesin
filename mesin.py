@@ -2,7 +2,14 @@
 
 import os
 import subprocess
+import sys
+import time
 from datetime import datetime
+
+username = os.getenv("USER")
+
+script_path = f"/home/{username}/Downloads/mesin/bash-scripts/banner.sh"
+subprocess.call(['bash', script_path])
 
 log_dir = os.path.join(os.getcwd(), "mesin")
 console_log = os.path.join(log_dir, "console.log")
@@ -29,7 +36,7 @@ def update_progress(flag, script, status):
         if not found:
             file.write(f"{flag}:{script}:{status}\n")
 
-def execute_script(flag, script_name):
+def execute_script(flag, script_name, total_scripts, current_index):
     script_type = script_name.split('.')[-1]
     script_dir = ""
 
@@ -45,22 +52,30 @@ def execute_script(flag, script_name):
 
     if os.path.exists(script_path):
         try:
+            animation_process = subprocess.Popen(["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "python-scripts", "mesin-animation.py"), str(current_index), str(total_scripts), script_name]) 
+            process = None
             if script_type == "sh":
-                subprocess.run(["bash", script_path], check=True)
-                update_progress(flag, script_name, "done")
-                return True
+                process = subprocess.Popen(["bash", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             elif script_type == "py":
-                subprocess.run(["python3", script_path], check=True)
+                process = subprocess.Popen(["python3", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            while process.poll() is None:
+                time.sleep(0.1)
+            
+            animation_process.terminate()
+
+            stdout, stderr = process.communicate()
+            if process.returncode == 0:
                 update_progress(flag, script_name, "done")
-                return True
-        except subprocess.CalledProcessError as e:
-            if e.returncode == 1:
-                update_progress(flag, script_name, "not done")
+                return script_name
             else:
-                update_progress(flag, script_name, "failed")
+                raise subprocess.CalledProcessError(returncode=process.returncode, cmd=script_name, output=stderr)
+        except subprocess.CalledProcessError as e:
+            update_progress(flag, script_name, e.output.decode().strip() or "failed")
+            sys.stdout.write(f"\033[2K\rError occurred while executing script {script_name}: {e.output.decode().strip()}")
             return False
     else:
-        print(f"Script {script_path} does not exist")
+        print(f"\rScript {script_path} does not exist")
         update_progress(flag, script_name, "not found")
         return False
 
@@ -71,28 +86,25 @@ def prepare_script_list(flag):
     if not os.path.exists(console_log):
         open(console_log, 'a').close()
 
+    script_list = []
     with open(flag_file, 'r') as file:
-        for script_name in file:
-            script_name = script_name.strip()
-            with open(console_log, 'r') as log:
-                if f"{flag}:{script_name}" not in log.read():
-                    update_progress(flag, script_name, "not done")
+        script_list = [script_name.strip() for script_name in file if script_name.strip()]
 
-flag = "mesin"  # You can change this to the desired flag value
+    for script_name in script_list:
+        update_progress(flag, script_name, "not done")
 
-prepare_script_list(flag)
+    return script_list
 
-with open(console_log, 'r') as file:
-    for line in file:
-        if line.startswith(flag):
-            _, script, status = line.strip().split(':')
-            if status != "done" and script != "":
-                if not execute_script(flag, script):
-                    print(f"Error occurred while executing script {script}")
-                    exit(1)
+flag = "mesin"
 
-with open(console_log, 'r+') as file:
-    lines = file.readlines()
-    file.seek(0)
-    file.write(f"{timestamp()}: Updated flag '{flag}'\n")
-    file.writelines(lines[1:])
+script_list = prepare_script_list(flag)
+total_scripts = len(script_list)
+for index, script_name in enumerate(script_list):
+    current_script = execute_script(flag, script_name, total_scripts, index)
+    if not current_script:
+        print(f"Error occurred while executing script {script_name}")
+        sys.exit(1)
+    if index < total_scripts - 1:
+        time.sleep(1)
+
+print("\nAll scripts executed.")

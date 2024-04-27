@@ -5,9 +5,21 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
+
+
 base_dir = os.path.expanduser("~/Downloads")
 proxy_dir = os.path.join(base_dir, "proxy-list")
 working_proxy_file = os.path.join(proxy_dir, "working_proxies.txt")
+
+user_agents = "user_agents"
+
+if not os.path.exists(base_dir):
+    os.makedirs(base_dir)
+
+if not os.path.exists(os.path.join(base_dir, user_agents)):
+    subprocess.run(["git", "clone", "https://github.com/cevaboyz/user_agents.git", os.path.join(base_dir, user_agents)])
+else:
+    print(f"Folder '{user_agents}' already exists in '{base_dir}'.")
 
 if os.path.exists(proxy_dir):
     shutil.rmtree(proxy_dir)
