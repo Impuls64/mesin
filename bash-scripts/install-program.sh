@@ -62,6 +62,8 @@ git clone https://github.com/six2dez/OneListForAll.git
 git clone https://github.com/ruevaughn/top25-parameter-ssrf.git
 git clone https://github.com/s0md3v/uro.git
 git clone https://github.com/s0md3v/XSStrike.git  
+git clone https://github.com/cevaboyz/user_agents.git
+git clone https://github.com/monosans/proxy-list.git
 
 # git clone https://github.com/rix4uni/pvreplace.git ~/bin/pvreplace
 # echo "alias pvreplace='python3 ~/bin/pvreplace/pvreplace.py'" >> ~/.bashrc && source ~/.bashrc
